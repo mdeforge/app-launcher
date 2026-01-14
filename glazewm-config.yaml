@@ -1,0 +1,35 @@
+# GlazeWM configuration snippet for App Launcher
+# Add this to your ~/.glzr/glazewm/config.yaml
+
+# =============================================================================
+# IPC-BASED TOGGLE (RECOMMENDED)
+# =============================================================================
+# The launcher runs as a resident daemon. This keybinding sends a "toggle"
+# command via named pipe - no new processes spawned, instant response (<5ms)
+#
+# Option A: Use the toggle script (recommended)
+keybindings:
+  - commands: ["shell-exec powershell -WindowStyle Hidden -File '%USERPROFILE%\\Source\\DEV_TOOLS\\layout\\al\\toggle-launcher.ps1'"]
+    bindings: ["alt+a"]
+
+# Option B: Inline PowerShell IPC (more portable, no script file needed)
+# keybindings:
+#   - commands: ["shell-exec powershell -WindowStyle Hidden -Command \"try { $p = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'app-launcher-ipc', 'Out'); $p.Connect(100); $w = New-Object System.IO.StreamWriter($p); $w.Write('toggle'); $w.Dispose(); $p.Dispose() } catch { Start-Process '%USERPROFILE%\\Source\\DEV_TOOLS\\layout\\al\\target\\release\\al.exe' -WindowStyle Hidden }\""]
+#     bindings: ["alt+a"]
+
+# =============================================================================
+# WINDOW RULES
+# =============================================================================
+# Make the launcher float and ignore tiling
+window_rules:
+  - commands: ["ignore"]
+    match:
+      - window_process: { equals: "al" }
+
+# =============================================================================
+# HOW IT WORKS
+# =============================================================================
+# 1. First Alt+A: Launcher starts as a hidden daemon, shows UI
+# 2. Escape or launch app: UI hides (minimizes), daemon stays resident
+# 3. Next Alt+A: Sends "toggle" via named pipe, UI shows instantly
+# 4. No terminal flash, no multiple processes, rofi-like behavior
