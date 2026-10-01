@@ -189,13 +189,19 @@ fn parse_lnk_target(path: &std::path::Path) -> Option<String> {
 /// Discover UWP/MSIX apps (Teams, Store apps, etc.)
 /// Uses PowerShell Get-StartApps to find all registered apps
 fn discover_uwp_apps(apps: &mut Vec<AppEntry>, seen_names: &mut std::collections::HashSet<String>) {
-    // Use PowerShell to get all Start Apps (includes UWP, MSIX, and regular apps)
+    use std::os::windows::process::CommandExt;
+    use windows::Win32::System::Threading::CREATE_NO_WINDOW;
+
+    // Use PowerShell to get all Start Apps (includes UWP, MSIX, and regular apps).
+    // CREATE_NO_WINDOW: without it, Windows opens a terminal window for PowerShell
+    // that steals focus, and the launcher hides itself on focus loss.
     let output = std::process::Command::new("powershell")
         .args([
             "-NoProfile",
             "-Command",
             "Get-StartApps | ForEach-Object { $_.Name + '|' + $_.AppID }"
         ])
+        .creation_flags(CREATE_NO_WINDOW.0)
         .output();
 
     if let Ok(output) = output {

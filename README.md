@@ -4,7 +4,7 @@ A modern, blazing-fast application launcher for Windows with seamless [GlazeWM](
 
 ## Features
 
-- **Instant Launch** - IPC-based toggle via named pipes (<5ms response)
+- **Instant Launch** - Resident daemon; re-running `al.exe` toggles it over a named pipe
 - **Fuzzy Search** - Find apps quickly with typo-tolerant matching
 - **Pinned Apps** - Favorite apps always appear at the top
 - **Modern UI** - Transparent window, wallpaper background, clock overlay
@@ -21,10 +21,10 @@ A modern, blazing-fast application launcher for Windows with seamless [GlazeWM](
 
 ## Installation
 
-### From
-git Source
+### From Source
 
-```bash clone https://github.com/fxvarga/app-launcher.git
+```bash
+git clone https://github.com/fxvarga/app-launcher.git
 cd app-launcher
 cargo build --release
 ```
@@ -44,7 +44,7 @@ Add this to your `~/.glzr/glazewm/config.yaml`:
 
 ```yaml
 keybindings:
-  - commands: ["shell-exec powershell -WindowStyle Hidden -File '%USERPROFILE%\\Source\\DEV_TOOLS\\layout\\al\\toggle-launcher.ps1'"]
+  - commands: ["shell-exec C:\\path\\to\\app-launcher\\target\\release\\al.exe"]
     bindings: ["alt+a"]
 
 window_rules:
@@ -53,7 +53,9 @@ window_rules:
       - window_process: { equals: "al" }
 ```
 
-Press `Alt+A` to toggle the launcher.
+Replace the path with wherever `al.exe` lives. Press `Alt+A` to toggle the launcher: the first press starts the daemon, and later presses run a short-lived `al.exe` that sends `toggle` to the daemon and exits.
+
+Bind `al.exe` directly rather than wrapping it in `powershell` or `cmd`. Console programs open a terminal window that steals focus, and the launcher hides itself when it loses focus.
 
 ## Usage
 
@@ -103,7 +105,7 @@ src/
 ### Key Design Decisions
 
 - **Single Instance** - Named mutex ensures only one daemon runs
-- **IPC Communication** - Named pipes allow instant toggle without spawning processes
+- **IPC Communication** - A second `al.exe` instance sends commands to the daemon over a named pipe, then exits
 - **Daemon Pattern** - Launcher stays resident in memory for instant response
 - **App Caching** - Scanned apps are cached to JSON for fast subsequent loads
 - **Transparent Window** - Uses `window-vibrancy` for modern glass effect

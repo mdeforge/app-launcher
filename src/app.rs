@@ -160,9 +160,7 @@ impl Launcher {
             Message::LaunchApp(index) => {
                 if let Some(app) = self.filtered_apps.get(index) {
                     if let Some(ref path) = app.exec_path {
-                        let _ = std::process::Command::new("cmd")
-                            .args(["/C", "start", "", path])
-                            .spawn();
+                        launch_path(path);
                     }
                 }
                 // Hide after launch
@@ -220,9 +218,7 @@ impl Launcher {
                     // Launch selected result
                     if !self.filtered_apps.is_empty() {
                         if let Some(ref path) = self.filtered_apps[self.selected_index].exec_path {
-                            let _ = std::process::Command::new("cmd")
-                                .args(["/C", "start", "", path])
-                                .spawn();
+                            launch_path(path);
                         }
                         self.search_query.clear();
                         self.filtered_apps = self.all_apps.clone();
@@ -618,6 +614,19 @@ impl Launcher {
             },
         )
     }
+}
+
+/// Launch an app path (or shell: URI) without flashing a console window.
+/// `al` has no console, so a bare `cmd` spawn would open a new terminal
+/// window that steals focus from the launcher.
+fn launch_path(path: &str) {
+    use std::os::windows::process::CommandExt;
+    use windows::Win32::System::Threading::CREATE_NO_WINDOW;
+
+    let _ = std::process::Command::new("cmd")
+        .args(["/C", "start", "", path])
+        .creation_flags(CREATE_NO_WINDOW.0)
+        .spawn();
 }
 
 /// Stream IPC commands from the background thread
