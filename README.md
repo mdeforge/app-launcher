@@ -7,7 +7,7 @@ A minimal, fast application launcher for Windows with [GlazeWM](https://github.c
 - **Instant Toggle** - Resident daemon; running `al.exe` again toggles it over a named pipe
 - **System Tray** - Lives in the tray between uses, with no taskbar button
 - **Minimal UI** - Just a search bar and results
-- **Fuzzy Search** - Typo-tolerant matching
+- **Prefix Search** - Shows only apps whose name starts with what you type
 - **Pinned Apps** - Favorite apps always appear at the top
 - **GlazeWM Colors** - Border, selection, and background follow your GlazeWM border colors
 - **Keyboard First** - Arrows, Enter, and Escape
@@ -61,7 +61,7 @@ See `glazewm-config.yaml` for a commented version of this snippet.
 | Input | Action |
 |-------|--------|
 | Hotkey (e.g. `Alt+A`) | Toggle launcher |
-| Type | Filter applications |
+| Type | Show apps whose name starts with the typed text (case-insensitive) |
 | `Arrow Up/Down` | Move selection |
 | `Enter` / click | Launch app and hide |
 | `Escape` / click elsewhere | Hide launcher |
@@ -100,7 +100,7 @@ const PINNED_APPS: &[&str] = &[
 
 **Window size** and fallback colors are in `src/ui/theme.rs`.
 
-**App cache** is stored at `%LOCALAPPDATA%\al\apps_cache.json` and refreshed in the background each time the daemon starts. Icons aren't cached, so they appear once that refresh finishes.
+**App cache** is stored at `%LOCALAPPDATA%\al\apps_cache.json` and refreshed in the background each time the daemon starts. Icons are cached with the app list, so they show as soon as the launcher opens.
 
 ## Architecture
 
@@ -110,10 +110,10 @@ src/
 ├── app.rs            # App state, UI rendering, message handling
 ├── ipc.rs            # Named pipe server/client for toggle commands
 ├── discovery/        # Start Menu, desktop, and Store app scanning; JSON cache
-├── search/           # Fuzzy search
+├── search/           # Prefix search
 ├── platform/
 │   ├── glazewm.rs    # Reads border colors from the GlazeWM config
-│   ├── icons.rs      # App icon extraction
+│   ├── icons.rs      # App icon extraction via the Windows Shell
 │   └── tray.rs       # System tray icon and menu
 └── ui/
     └── theme.rs      # Dimensions, colors, styling constants
@@ -147,7 +147,6 @@ Both builds use the Windows GUI subsystem, so neither opens a console. `cargo bu
 - **GUI Framework**: [Iced](https://iced.rs/) 0.13
 - **Windows API**: [windows](https://docs.rs/windows/) crate
 - **System Tray**: [tray-icon](https://docs.rs/tray-icon/)
-- **Fuzzy Search**: [fuzzy-matcher](https://docs.rs/fuzzy-matcher/)
 - **GlazeWM Config**: [yaml-rust2](https://docs.rs/yaml-rust2/)
 - **Async Runtime**: Tokio
 - **Serialization**: Serde/JSON

@@ -1,16 +1,61 @@
 //! Windows application discovery from Start Menu
 
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use iced::widget::image;
 use serde::{Deserialize, Serialize};
 use std::panic::{self, AssertUnwindSafe};
 use std::path::PathBuf;
 use walkdir::WalkDir;
 
-/// Represents icon pixel data
+/// Icon size in pixels, matching the app list
+const ICON_SIZE: u32 = 32;
+
+/// Icon pixels plus the image handle the UI draws.
+/// Building the handle once keeps iced from re-uploading the icon every frame.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "CachedIcon", into = "CachedIcon")]
 pub struct IconData {
     pub width: u32,
     pub height: u32,
     pub rgba: Vec<u8>,
+    pub handle: image::Handle,
+}
+
+impl IconData {
+    pub fn new(width: u32, height: u32, rgba: Vec<u8>) -> Self {
+        let handle = image::Handle::from_rgba(width, height, rgba.clone());
+        Self { width, height, rgba, handle }
+    }
+}
+
+/// On-disk form of an icon: RGBA pixels as base64
+#[derive(Serialize, Deserialize)]
+struct CachedIcon {
+    width: u32,
+    height: u32,
+    rgba: String,
+}
+
+impl From<IconData> for CachedIcon {
+    fn from(icon: IconData) -> Self {
+        Self {
+            width: icon.width,
+            height: icon.height,
+            rgba: BASE64.encode(&icon.rgba),
+        }
+    }
+}
+
+impl TryFrom<CachedIcon> for IconData {
+    type Error = String;
+
+    fn try_from(cached: CachedIcon) -> Result<Self, Self::Error> {
+        let rgba = BASE64.decode(&cached.rgba).map_err(|e| e.to_string())?;
+        if rgba.len() != cached.width as usize * cached.height as usize * 4 {
+            return Err("icon size does not match its pixel data".to_string());
+        }
+        Ok(Self::new(cached.width, cached.height, rgba))
+    }
 }
 
 /// Represents a discovered application
@@ -20,8 +65,7 @@ pub struct AppEntry {
     pub name: String,
     /// Path to executable
     pub exec_path: Option<String>,
-    /// Icon data (RGBA pixels)
-    #[serde(skip)]
+    /// Icon, cached so it shows as soon as the launcher starts
     pub icon_data: Option<IconData>,
 }
 
@@ -100,13 +144,10 @@ fn discover_apps_inner() -> Vec<AppEntry> {
     apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
 
     // Extract icons for all apps
+    let _com = crate::platform::icons::ComGuard::new();
     for app in &mut apps {
         if let Some(ref exec_path) = app.exec_path {
-            let path = std::path::Path::new(exec_path);
-            // Try to extract icon (32x32 for app list)
-            if let Some(icon) = crate::platform::icons::extract_icon(path, 32) {
-                app.icon_data = Some(icon);
-            }
+            app.icon_data = crate::platform::icons::extract_icon(exec_path, ICON_SIZE);
         }
     }
 
@@ -268,4 +309,41 @@ pub async fn cache_apps(apps: &[AppEntry]) -> Result<(), std::io::Error> {
     tokio::fs::write(path, data).await?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn icons_survive_the_cache() {
+        let rgba: Vec<u8> = (0..32 * 32 * 4).map(|i| i as u8).collect();
+        let apps = vec![AppEntry {
+            name: "Word".to_string(),
+            exec_path: Some(r"C:\Word.exe".to_string()),
+            icon_data: Some(IconData::new(32, 32, rgba.clone())),
+        }];
+
+        let json = serde_json::to_string(&apps).unwrap();
+        let loaded: Vec<AppEntry> = serde_json::from_str(&json).unwrap();
+
+        let icon = loaded[0].icon_data.as_ref().unwrap();
+        assert_eq!((icon.width, icon.height), (32, 32));
+        assert_eq!(icon.rgba, rgba);
+    }
+
+    #[test]
+    fn loads_caches_written_without_icons() {
+        let json = r#"[{"name":"Word","exec_path":"C:/Word.exe"}]"#;
+        let loaded: Vec<AppEntry> = serde_json::from_str(json).unwrap();
+
+        assert!(loaded[0].icon_data.is_none());
+    }
+
+    #[test]
+    fn rejects_icons_with_wrong_pixel_count() {
+        let json = r#"{"width":32,"height":32,"rgba":"AAAA"}"#;
+
+        assert!(serde_json::from_str::<IconData>(json).is_err());
+    }
 }

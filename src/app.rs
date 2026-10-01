@@ -2,11 +2,11 @@
 
 use crate::discovery::AppEntry;
 use crate::ipc::IpcCommand;
-use crate::search::fuzzy_search;
+use crate::search::prefix_search;
 use crate::ui::theme::{self, WINDOW_HEIGHT, WINDOW_WIDTH};
 
 use iced::widget::{
-    button, column, container, image, row, scrollable, text, text_input, Column, Image,
+    button, column, container, row, scrollable, text, text_input, Column, Image,
 };
 use iced::{
     border::Radius,
@@ -128,7 +128,7 @@ impl Launcher {
                 if query.is_empty() {
                     self.filtered_apps = self.all_apps.clone();
                 } else {
-                    self.filtered_apps = fuzzy_search(&self.all_apps, &query);
+                    self.filtered_apps = prefix_search(&self.all_apps, &query);
                 }
                 // Scroll to top when searching
                 scrollable::scroll_to(
@@ -165,7 +165,7 @@ impl Launcher {
                 if self.search_query.is_empty() {
                     self.filtered_apps = sorted_apps;
                 } else {
-                    self.filtered_apps = fuzzy_search(&self.all_apps, &self.search_query);
+                    self.filtered_apps = prefix_search(&self.all_apps, &self.search_query);
                 }
                 self.selected_index = 0;
                 // Cache apps for next launch
@@ -358,12 +358,7 @@ impl Launcher {
         // App icon (placeholder circle if no icon)
         let icon_element: Element<Message> = if let Some(ref icon_data) = app.icon_data {
             // If we have icon data, display it
-            let handle = image::Handle::from_rgba(
-                icon_data.width,
-                icon_data.height,
-                icon_data.rgba.clone(),
-            );
-            Image::new(handle)
+            Image::new(icon_data.handle.clone())
                 .width(theme::APP_ICON_SIZE)
                 .height(theme::APP_ICON_SIZE)
                 .content_fit(ContentFit::Contain)

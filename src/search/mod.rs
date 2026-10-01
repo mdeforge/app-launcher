@@ -1,5 +1,5 @@
 //! Search functionality
 
-mod fuzzy;
+mod prefix;
 
-pub use fuzzy::fuzzy_search;
+pub use prefix::prefix_search;
