@@ -24,7 +24,7 @@ A modern, blazing-fast application launcher for Windows with seamless [GlazeWM](
 ### From Source
 
 ```bash
-git clone https://github.com/fxvarga/app-launcher.git
+git clone https://github.com/mdeforge/app-launcher.git
 cd app-launcher
 cargo build --release
 ```
