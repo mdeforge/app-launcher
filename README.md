@@ -5,6 +5,7 @@ A modern, blazing-fast application launcher for Windows with seamless [GlazeWM](
 ## Features
 
 - **Instant Launch** - Resident daemon; re-running `al.exe` toggles it over a named pipe
+- **System Tray** - Hides to the tray instead of the taskbar; click the icon to open, right-click to quit
 - **Fuzzy Search** - Find apps quickly with typo-tolerant matching
 - **Pinned Apps** - Favorite apps always appear at the top
 - **Minimal UI** - Just the search bar and results, nothing else to render
@@ -114,7 +115,7 @@ src/
 
 - **Single Instance** - Named mutex ensures only one daemon runs
 - **IPC Communication** - A second `al.exe` instance sends commands to the daemon over a named pipe, then exits
-- **Daemon Pattern** - Launcher stays resident in memory for instant response
+- **Daemon Pattern** - Launcher stays resident in memory for instant response, hidden in the system tray between uses
 - **App Caching** - Scanned apps are cached to JSON for fast subsequent loads
 - **Transparent Window** - Uses `window-vibrancy` for modern glass effect
 

@@ -40,10 +40,8 @@ impl IpcCommand {
 }
 
 /// Start the IPC server in a background thread
-/// Returns a receiver for incoming commands
-pub fn start_ipc_server() -> mpsc::Receiver<IpcCommand> {
-    let (tx, rx) = mpsc::channel();
-
+/// Incoming commands are sent to `tx`
+pub fn start_ipc_server(tx: mpsc::Sender<IpcCommand>) {
     thread::spawn(move || {
         loop {
             if let Some(cmd) = wait_for_command() {
@@ -57,8 +55,6 @@ pub fn start_ipc_server() -> mpsc::Receiver<IpcCommand> {
             }
         }
     });
-
-    rx
 }
 
 /// Wait for a single command on the named pipe

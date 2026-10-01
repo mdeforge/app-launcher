@@ -30,7 +30,7 @@ window_rules:
 # =============================================================================
 # 1. First Alt+A: al.exe starts as the resident daemon and shows the UI
 # 2. Escape, launching an app, or focusing another window: UI hides
-#    (minimizes), daemon stays resident
+#    (hides to the system tray), daemon stays resident
 # 3. Next Alt+A: a second al.exe sends "toggle" via named pipe and exits;
 #    the daemon shows the UI
 # 4. No terminal flash, only one resident process

@@ -2,7 +2,6 @@
 
 use crate::discovery::AppEntry;
 use crate::ipc::IpcCommand;
-use crate::platform;
 use crate::search::fuzzy_search;
 use crate::ui::theme::{self, WINDOW_HEIGHT, WINDOW_WIDTH};
 
@@ -61,8 +60,8 @@ pub enum Message {
 }
 
 impl Launcher {
-    /// Initialize the launcher
-    pub fn new() -> (Self, Task<Message>) {
+    /// Initialize the launcher with colors derived from the GlazeWM config
+    pub fn new(colors: theme::Colors) -> (Self, Task<Message>) {
         // Load cached apps or discover them
         let apps = crate::discovery::load_cached_apps().unwrap_or_default();
         let sorted_apps = Self::sort_with_pinned(apps);
@@ -73,7 +72,7 @@ impl Launcher {
             all_apps: sorted_apps,
             selected_index: 0,
             is_visible: true,
-            colors: theme::Colors::from_glazewm(&platform::glazewm::border_colors()),
+            colors,
         };
 
         // Start async app discovery to refresh cache
@@ -143,7 +142,7 @@ impl Launcher {
                 self.filtered_apps = self.all_apps.clone();
                 self.selected_index = 0;
                 self.is_visible = false;
-                window::get_latest().and_then(|id| window::minimize(id, true))
+                window::get_latest().and_then(|id| window::change_mode(id, window::Mode::Hidden))
             }
 
             Message::LaunchApp(index) => {
@@ -156,7 +155,7 @@ impl Launcher {
                 self.search_query.clear();
                 self.filtered_apps = self.all_apps.clone();
                 self.is_visible = false;
-                window::get_latest().and_then(|id| window::minimize(id, true))
+                window::get_latest().and_then(|id| window::change_mode(id, window::Mode::Hidden))
             }
 
             Message::AppsLoaded(apps) => {
@@ -185,7 +184,7 @@ impl Launcher {
                     self.filtered_apps = self.all_apps.clone();
                     self.selected_index = 0;
                     self.is_visible = false;
-                    return window::get_latest().and_then(|id| window::minimize(id, true));
+                    return window::get_latest().and_then(|id| window::change_mode(id, window::Mode::Hidden));
                 }
                 if key == keyboard::Key::Named(keyboard::key::Named::ArrowDown) {
                     if !self.filtered_apps.is_empty() {
@@ -213,7 +212,7 @@ impl Launcher {
                         self.filtered_apps = self.all_apps.clone();
                         self.selected_index = 0;
                         self.is_visible = false;
-                        return window::get_latest().and_then(|id| window::minimize(id, true));
+                        return window::get_latest().and_then(|id| window::change_mode(id, window::Mode::Hidden));
                     }
                 }
                 Task::none()
@@ -232,7 +231,7 @@ impl Launcher {
                     }
                     IpcCommand::Show => self.show_window(),
                     IpcCommand::Hide => self.hide_window(),
-                    IpcCommand::Quit => window::get_latest().and_then(window::close),
+                    IpcCommand::Quit => iced::exit(),
                 }
             }
         }
@@ -245,9 +244,9 @@ impl Launcher {
         self.filtered_apps = self.all_apps.clone();
         self.selected_index = 0;
 
-        // Restore and focus window
+        // Unhide and focus window
         Task::batch([
-            window::get_latest().and_then(|id| window::minimize(id, false)),
+            window::get_latest().and_then(|id| window::change_mode(id, window::Mode::Windowed)),
             window::get_latest().and_then(window::gain_focus),
             text_input::focus(text_input::Id::new("search")),
         ])
@@ -256,7 +255,7 @@ impl Launcher {
     /// Hide the launcher window
     fn hide_window(&mut self) -> Task<Message> {
         self.is_visible = false;
-        window::get_latest().and_then(|id| window::minimize(id, true))
+        window::get_latest().and_then(|id| window::change_mode(id, window::Mode::Hidden))
     }
 
     /// Build the view: search bar above the app list

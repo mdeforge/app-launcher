@@ -16,8 +16,8 @@ mod search;
 mod ui;
 
 use app::Launcher;
-use iced::{window, Size};
-use ui::theme::{WINDOW_HEIGHT, WINDOW_WIDTH};
+use iced::{window, Color, Size};
+use ui::theme::{self, WINDOW_HEIGHT, WINDOW_WIDTH};
 
 fn main() -> iced::Result {
     // Try to acquire single-instance mutex
@@ -36,13 +36,20 @@ fn main() -> iced::Result {
     #[cfg(windows)]
     hide_console_window();
 
-    // Start the IPC server in background thread
-    let ipc_rx = ipc::start_ipc_server();
+    // Theme colors from the GlazeWM config (read once at startup)
+    let glazewm = platform::glazewm::border_colors();
+    let colors = theme::Colors::from_glazewm(&glazewm);
+
+    // The IPC server and tray icon both send commands to the app
+    let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
+    ipc::start_ipc_server(cmd_tx.clone());
+    platform::tray::start_tray(cmd_tx, glazewm.focused.unwrap_or(Color::WHITE));
 
     // Store the receiver in a static for the subscription to access
-    IPC_RECEIVER.set(std::sync::Mutex::new(Some(ipc_rx))).ok();
+    IPC_RECEIVER.set(std::sync::Mutex::new(Some(cmd_rx))).ok();
 
-    // Window settings: transparent, no decorations, centered
+    // Window settings: transparent, no decorations, centered, no taskbar button
+    // (the launcher lives in the system tray)
     let window_settings = window::Settings {
         size: Size::new(WINDOW_WIDTH, WINDOW_HEIGHT),
         position: window::Position::Centered,
@@ -51,6 +58,10 @@ fn main() -> iced::Result {
         level: window::Level::AlwaysOnTop,
         visible: true,
         resizable: false,
+        platform_specific: window::settings::PlatformSpecific {
+            skip_taskbar: true,
+            ..Default::default()
+        },
         ..Default::default()
     };
 
@@ -58,7 +69,7 @@ fn main() -> iced::Result {
         .window(window_settings)
         .subscription(Launcher::subscription)
         .theme(Launcher::theme)
-        .run_with(Launcher::new)
+        .run_with(move || Launcher::new(colors))
 }
 
 /// Global IPC receiver (set once at startup)
