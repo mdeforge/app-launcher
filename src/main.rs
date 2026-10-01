@@ -4,6 +4,8 @@
 //! Usage:
 //!   - First launch: starts the daemon
 //!   - Subsequent launches: sends "toggle" command to existing instance
+//!   - `--hidden`: start the daemon in the tray without showing the window
+//!     (for GlazeWM `startup_commands`); does nothing if already running
 
 // This prevents the console window from appearing
 #![windows_subsystem = "windows"]
@@ -20,12 +22,17 @@ use iced::{window, Color, Size};
 use ui::theme::{self, WINDOW_HEIGHT, WINDOW_WIDTH};
 
 fn main() -> iced::Result {
+    let start_hidden = std::env::args().skip(1).any(|arg| arg == "--hidden");
+
     // Try to acquire single-instance mutex
     let _mutex = match single_instance_mutex() {
         Some(m) => m,
         None => {
-            // Another instance is running - send toggle and exit
-            ipc::send_command("toggle");
+            // Another instance is running - send toggle and exit.
+            // A hidden (startup) launch leaves the running instance alone.
+            if !start_hidden {
+                ipc::send_command("toggle");
+            }
             return Ok(());
         }
     };
@@ -56,7 +63,7 @@ fn main() -> iced::Result {
         decorations: false,
         transparent: true,
         level: window::Level::AlwaysOnTop,
-        visible: true,
+        visible: !start_hidden,
         resizable: false,
         platform_specific: window::settings::PlatformSpecific {
             skip_taskbar: true,
@@ -69,7 +76,7 @@ fn main() -> iced::Result {
         .window(window_settings)
         .subscription(Launcher::subscription)
         .theme(Launcher::theme)
-        .run_with(move || Launcher::new(colors))
+        .run_with(move || Launcher::new(colors, !start_hidden))
 }
 
 /// Global IPC receiver (set once at startup)

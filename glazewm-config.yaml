@@ -1,36 +1,46 @@
 # GlazeWM configuration snippet for App Launcher
-# Add this to your ~/.glzr/glazewm/config.yaml
+# Merge this into your ~/.glzr/glazewm/config.yaml
+#
+# Replace C:\path\to\app-launcher with wherever al.exe lives.
+
+# =============================================================================
+# STARTUP
+# =============================================================================
+# Start the launcher daemon in the system tray when GlazeWM starts.
+# --hidden keeps the window from appearing, and does nothing if al is
+# already running (e.g. after restarting GlazeWM).
+general:
+  startup_commands:
+    - 'shell-exec C:\path\to\app-launcher\target\release\al.exe --hidden'
 
 # =============================================================================
 # KEYBINDING
 # =============================================================================
-# The launcher runs as a resident daemon. Running al.exe again while it's up
-# sends a "toggle" command to the daemon via named pipe and exits.
+# Running al.exe while the daemon is up sends it a "toggle" command via named
+# pipe and exits. If the daemon isn't running, the first press starts it.
 #
 # Call al.exe directly - don't wrap it in powershell or cmd. Console programs
 # open a terminal window that steals focus, and the launcher hides itself
 # when it loses focus.
-#
-# Replace the path with wherever al.exe lives.
 keybindings:
-  - commands: ["shell-exec C:\\path\\to\\app-launcher\\target\\release\\al.exe"]
-    bindings: ["alt+a"]
+  - commands: ['shell-exec C:\path\to\app-launcher\target\release\al.exe']
+    bindings: ['alt+a']
 
 # =============================================================================
 # WINDOW RULES
 # =============================================================================
-# Make the launcher float and ignore tiling
+# Keep GlazeWM from tiling the launcher window
 window_rules:
-  - commands: ["ignore"]
+  - commands: ['ignore']
     match:
-      - window_process: { equals: "al" }
+      - window_process: { equals: 'al' }
 
 # =============================================================================
 # HOW IT WORKS
 # =============================================================================
-# 1. First Alt+A: al.exe starts as the resident daemon and shows the UI
-# 2. Escape, launching an app, or focusing another window: UI hides
-#    (hides to the system tray), daemon stays resident
-# 3. Next Alt+A: a second al.exe sends "toggle" via named pipe and exits;
-#    the daemon shows the UI
-# 4. No terminal flash, only one resident process
+# 1. GlazeWM starts: al.exe --hidden starts the daemon in the system tray
+# 2. Alt+A: a second al.exe sends "toggle" via named pipe and exits;
+#    the daemon shows the launcher
+# 3. Escape, launching an app, or focusing another window: the launcher
+#    hides back to the tray
+# 4. Tray icon: left-click opens the launcher, right-click offers Quit

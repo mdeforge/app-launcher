@@ -1,29 +1,25 @@
 # App Launcher (al)
 
-A modern, blazing-fast application launcher for Windows with seamless [GlazeWM](https://github.com/glzr-tech/glazewm) integration. Inspired by rofi and PowerToys Run, but built specifically for the Windows tiling window manager ecosystem.
+A minimal, fast application launcher for Windows with [GlazeWM](https://github.com/glzr-tech/glazewm) integration. Inspired by rofi and PowerToys Run, but built for the Windows tiling window manager ecosystem.
 
 ## Features
 
-- **Instant Launch** - Resident daemon; re-running `al.exe` toggles it over a named pipe
-- **System Tray** - Hides to the tray instead of the taskbar; click the icon to open, right-click to quit
-- **Fuzzy Search** - Find apps quickly with typo-tolerant matching
+- **Instant Toggle** - Resident daemon; running `al.exe` again toggles it over a named pipe
+- **System Tray** - Lives in the tray between uses, with no taskbar button
+- **Minimal UI** - Just a search bar and results
+- **Fuzzy Search** - Typo-tolerant matching
 - **Pinned Apps** - Favorite apps always appear at the top
-- **Minimal UI** - Just the search bar and results, nothing else to render
-- **GlazeWM Colors** - Border and background follow your GlazeWM border colors
-- **Keyboard First** - Full keyboard navigation (arrows, enter, escape)
-- **App Discovery** - Automatically indexes Start Menu shortcuts
-- **Caching** - Lightning-fast subsequent launches
-- **GlazeWM Ready** - Pre-configured integration out of the box
+- **GlazeWM Colors** - Border, selection, and background follow your GlazeWM border colors
+- **Keyboard First** - Arrows, Enter, and Escape
+- **App Discovery** - Indexes Start Menu and desktop shortcuts plus Store/MSIX apps, cached for fast startup
 
 ## Requirements
 
 - Windows 10/11
-- Rust toolchain (1.70+)
-- GlazeWM (optional, for keybinding integration)
+- Rust 1.90+
+- GlazeWM (optional, for the hotkey and startup integration)
 
 ## Installation
-
-### From Source
 
 ```bash
 git clone https://github.com/mdeforge/app-launcher.git
@@ -31,49 +27,64 @@ cd app-launcher
 cargo build --release
 ```
 
-The binary will be at `target/release/al.exe`.
-
-### Manual Setup
-
-1. Build the release binary
-2. Add the binary directory to your PATH, or keep it in this directory
-3. Configure GlazeWM (see below)
-4. Run `al.exe` once to generate the app cache
+The binary is at `target/release/al.exe`.
 
 ## GlazeWM Integration
 
-Add this to your `~/.glzr/glazewm/config.yaml`:
+Add this to your `~/.glzr/glazewm/config.yaml`, replacing the path with wherever `al.exe` lives:
 
 ```yaml
+general:
+  startup_commands:
+    - 'shell-exec C:\path\to\app-launcher\target\release\al.exe --hidden'
+
 keybindings:
-  - commands: ["shell-exec C:\\path\\to\\app-launcher\\target\\release\\al.exe"]
-    bindings: ["alt+a"]
+  - commands: ['shell-exec C:\path\to\app-launcher\target\release\al.exe']
+    bindings: ['alt+a']
 
 window_rules:
-  - commands: ["ignore"]
+  - commands: ['ignore']
     match:
-      - window_process: { equals: "al" }
+      - window_process: { equals: 'al' }
 ```
 
-Replace the path with wherever `al.exe` lives. Press `Alt+A` to toggle the launcher: the first press starts the daemon, and later presses run a short-lived `al.exe` that sends `toggle` to the daemon and exits.
+- **Startup** - `--hidden` starts the daemon in the tray without showing the window. If `al` is already running, it does nothing.
+- **Hotkey** - Toggles the launcher. If the daemon isn't running yet, the first press starts it.
+- **Window rule** - Keeps GlazeWM from tiling the launcher window.
 
 Bind `al.exe` directly rather than wrapping it in `powershell` or `cmd`. Console programs open a terminal window that steals focus, and the launcher hides itself when it loses focus.
 
+See `glazewm-config.yaml` for a commented version of this snippet.
+
 ## Usage
 
-### Keyboard Shortcuts
+| Input | Action |
+|-------|--------|
+| Hotkey (e.g. `Alt+A`) | Toggle launcher |
+| Type | Filter applications |
+| `Arrow Up/Down` | Move selection |
+| `Enter` / click | Launch app and hide |
+| `Escape` / click elsewhere | Hide launcher |
+| Tray icon left-click | Open launcher |
+| Tray icon right-click | Open or Quit |
 
-| Key | Action |
-|-----|--------|
-| `Alt+A` | Toggle launcher (from GlazeWM) |
-| `Type to search` | Filter applications |
-| `Arrow Up/Down` | Navigate results |
-| `Enter` | Launch selected app |
-| `Escape` | Close launcher |
+### Command Line
 
-### Configuration
+| Command | Effect |
+|---------|--------|
+| `al.exe` | Start the daemon and show the launcher, or toggle it if already running |
+| `al.exe --hidden` | Start the daemon in the tray; no effect if already running |
 
-Pinned apps are configured in `src/app.rs`:
+## Configuration
+
+**Colors** come from `~/.glzr/glazewm/config.yaml`, read once when the daemon starts:
+
+- `window_effects.focused_window.border.color` - window outline, selected row, and tray icon
+- `window_effects.other_windows.border.color` - panel background
+
+If the file is missing, a border is disabled, or a color is unset, that color falls back to the built-in theme. Quit and restart `al` to pick up changes.
+
+**Pinned apps** are set in `src/app.rs`:
 
 ```rust
 const PINNED_APPS: &[&str] = &[
@@ -87,57 +98,57 @@ const PINNED_APPS: &[&str] = &[
 ];
 ```
 
-Window dimensions and fallback colors are in `src/ui/theme.rs`.
+**Window size** and fallback colors are in `src/ui/theme.rs`.
 
-Colors come from `~/.glzr/glazewm/config.yaml`, read once when the daemon starts:
-
-- `window_effects.focused_window.border.color` - window outline and selected row
-- `window_effects.other_windows.border.color` - panel background
-
-If the file is missing, a border is disabled, or a color is unset, that color falls back to the built-in theme. Restart `al` to pick up changes.
+**App cache** is stored at `%LOCALAPPDATA%\al\apps_cache.json` and refreshed in the background each time the daemon starts. Icons aren't cached, so they appear once that refresh finishes.
 
 ## Architecture
 
 ```
 src/
-├── main.rs           # Entry point, IPC server, single-instance mutex
-├── app.rs            # Main app state, UI rendering, message handling
-├── discovery/        # Start Menu app scanning and caching
-├── search/           # Fuzzy search implementation
-├── ipc.rs            # Named pipe server/client for IPC
-├── platform/         # Windows-specific (icons, vibrancy, GlazeWM colors)
+├── main.rs           # Entry point: single-instance mutex, startup flags, window setup
+├── app.rs            # App state, UI rendering, message handling
+├── ipc.rs            # Named pipe server/client for toggle commands
+├── discovery/        # Start Menu, desktop, and Store app scanning; JSON cache
+├── search/           # Fuzzy search
+├── platform/
+│   ├── glazewm.rs    # Reads border colors from the GlazeWM config
+│   ├── icons.rs      # App icon extraction
+│   └── tray.rs       # System tray icon and menu
 └── ui/
-    ├── mod.rs        # UI component definitions
-    └── theme.rs      # Colors, dimensions, styling constants
+    └── theme.rs      # Dimensions, colors, styling constants
 ```
 
 ### Key Design Decisions
 
-- **Single Instance** - Named mutex ensures only one daemon runs
-- **IPC Communication** - A second `al.exe` instance sends commands to the daemon over a named pipe, then exits
-- **Daemon Pattern** - Launcher stays resident in memory for instant response, hidden in the system tray between uses
-- **App Caching** - Scanned apps are cached to JSON for fast subsequent loads
-- **Transparent Window** - Uses `window-vibrancy` for modern glass effect
+- **Single Instance** - A named mutex ensures only one daemon runs
+- **IPC** - A second `al.exe` sends commands to the daemon over a named pipe, then exits
+- **Daemon in the Tray** - The launcher stays resident for instant response and is hidden, not minimized, between uses
+- **Shared Command Channel** - The pipe server and the tray icon (on its own Win32 message-loop thread) feed the same command channel into the app
 
 ## Development
 
 ```bash
-# Debug build (with console)
+# Debug build
 cargo build
 
-# Release build (GUI, no console)
+# Release build
 cargo build --release
 
-# Watch mode (requires cargo-watch)
-cargo watch -x build
+# Tests
+cargo test
 ```
+
+Both builds use the Windows GUI subsystem, so neither opens a console. `cargo build` fails to replace `al.exe` while the daemon is running; quit it from the tray first.
 
 ## Tech Stack
 
 - **Language**: Rust
 - **GUI Framework**: [Iced](https://iced.rs/) 0.13
 - **Windows API**: [windows](https://docs.rs/windows/) crate
+- **System Tray**: [tray-icon](https://docs.rs/tray-icon/)
 - **Fuzzy Search**: [fuzzy-matcher](https://docs.rs/fuzzy-matcher/)
+- **GlazeWM Config**: [yaml-rust2](https://docs.rs/yaml-rust2/)
 - **Async Runtime**: Tokio
 - **Serialization**: Serde/JSON
 

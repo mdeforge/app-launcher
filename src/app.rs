@@ -60,8 +60,9 @@ pub enum Message {
 }
 
 impl Launcher {
-    /// Initialize the launcher with colors derived from the GlazeWM config
-    pub fn new(colors: theme::Colors) -> (Self, Task<Message>) {
+    /// Initialize the launcher with colors derived from the GlazeWM config.
+    /// `visible` is false when started hidden in the tray.
+    pub fn new(colors: theme::Colors, visible: bool) -> (Self, Task<Message>) {
         // Load cached apps or discover them
         let apps = crate::discovery::load_cached_apps().unwrap_or_default();
         let sorted_apps = Self::sort_with_pinned(apps);
@@ -71,7 +72,7 @@ impl Launcher {
             filtered_apps: sorted_apps.clone(),
             all_apps: sorted_apps,
             selected_index: 0,
-            is_visible: true,
+            is_visible: visible,
             colors,
         };
 
