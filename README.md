@@ -7,7 +7,8 @@ A modern, blazing-fast application launcher for Windows with seamless [GlazeWM](
 - **Instant Launch** - Resident daemon; re-running `al.exe` toggles it over a named pipe
 - **Fuzzy Search** - Find apps quickly with typo-tolerant matching
 - **Pinned Apps** - Favorite apps always appear at the top
-- **Modern UI** - Transparent window, wallpaper background, clock overlay
+- **Minimal UI** - Just the search bar and results, nothing else to render
+- **GlazeWM Colors** - Border and background follow your GlazeWM border colors
 - **Keyboard First** - Full keyboard navigation (arrows, enter, escape)
 - **App Discovery** - Automatically indexes Start Menu shortcuts
 - **Caching** - Lightning-fast subsequent launches
@@ -85,7 +86,14 @@ const PINNED_APPS: &[&str] = &[
 ];
 ```
 
-Window dimensions are in `src/ui/theme.rs`.
+Window dimensions and fallback colors are in `src/ui/theme.rs`.
+
+Colors come from `~/.glzr/glazewm/config.yaml`, read once when the daemon starts:
+
+- `window_effects.focused_window.border.color` - window outline and selected row
+- `window_effects.other_windows.border.color` - panel background
+
+If the file is missing, a border is disabled, or a color is unset, that color falls back to the built-in theme. Restart `al` to pick up changes.
 
 ## Architecture
 
@@ -96,7 +104,7 @@ src/
 ├── discovery/        # Start Menu app scanning and caching
 ├── search/           # Fuzzy search implementation
 ├── ipc.rs            # Named pipe server/client for IPC
-├── platform/         # Windows-specific (wallpaper, icons, vibrancy)
+├── platform/         # Windows-specific (icons, vibrancy, GlazeWM colors)
 └── ui/
     ├── mod.rs        # UI component definitions
     └── theme.rs      # Colors, dimensions, styling constants
